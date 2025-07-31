@@ -1,0 +1,12 @@
+{
+    "Lua.diagnostics.disable": [
+        "cast-local-type",
+        "duplicate-set-field"
+    ],
+    "Lua.diagnostics.globals": [
+        "log",
+        "serverEventBridge",
+        "vx_discordApi",
+        "serverCallbackBridge"
+    ]
+}
