@@ -13,6 +13,7 @@ The script handles the ratelimitting of Discord so no ratelimitting issues.
 2. Set the convar `discordToken` in your server configuration
 
 ## Exports
+Tip: Add the `types.lua` file to the libraries in your Lua extension for autocompletion and types. :)
 
 ```lua
 --------------------
