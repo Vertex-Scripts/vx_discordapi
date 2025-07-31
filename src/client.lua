@@ -1,7 +1,5 @@
 Citizen.CreateThread(function()
-    for i = 0, 100 do
-        serverEventBridge.playerLoaded()
-    end
+    serverEventBridge.playerLoaded()
 end)
 
 exports("getMember", function()
