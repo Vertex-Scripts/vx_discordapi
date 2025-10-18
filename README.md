@@ -36,6 +36,17 @@ function exports.vx_discordapi:getMemberByPlayerId(source) end
 ---`Server`
 function exports.vx_discordapi:hasRoleId(source, roleId) return false end
 
+---@param userId string
+---@param roleId string
+---@return boolean
+---`Server`
+function exports.vx_discordapi:giveRole(userId, roleId) return false end
+
+---@param roleId string
+---@return DiscordRole?
+---`Server`
+function exports.vx_discordapi:getRoleById(roleId) return nil end
+
 --------------------
 -- Client Exports --
 --------------------
@@ -44,4 +55,11 @@ function exports.vx_discordapi:hasRoleId(source, roleId) return false end
 ---@return boolean
 ---`Client`
 function exports.vx_discordapi:hasRoleId(roleId) return false end
-```
+
+---@return DiscordRole[]
+---`Client`
+function exports.vx_discordapi:getDiscordRoles() return {} end
+
+## TODO
+* Ensure that every `DiscordRole` type has `hexColor`, now it's just for `getDiscordRoles` because I needed it there and I'm lazy
+* Add more endpoints

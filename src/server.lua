@@ -1,3 +1,7 @@
+vx.print.info({
+    c = "print('test')"
+})
+
 if ServerConfig.token == "none" then
     error(
         "Discord bot token is not set in the server configuration. Please set 'discordToken' convar or update config.server.lua.")
@@ -8,6 +12,8 @@ local memoryCache = vx.memoryCache:new()
 local requestQueue = {}
 local isProcessing = false
 local ratelimitBuffer = 0
+
+---@type DiscordGuild?
 local currentGuild = nil
 
 ---@type table<string, DiscordMember>
@@ -126,6 +132,21 @@ local function loadMember(source)
     cache[discordId] = member
 end
 
+local function giveRole(userId, roleId)
+    local url = string.format("https://discord.com/api/v10/guilds/%s/members/%s/roles/%s",
+        ServerConfig.guildId, userId, roleId)
+
+    local response = vx.sendHttpRequest(url, {
+        method = "PUT",
+        headers = {
+            ["Authorization"] = string.format("Bot %s", ServerConfig.token),
+            ["Content-Type"] = "application/json"
+        }
+    })
+
+    vx.print.info(response)
+end
+
 Citizen.CreateThread(function()
     currentGuild = getGuild()
 end)
@@ -137,6 +158,21 @@ end)
 function serverCallbackBridge.getCurrentMember(source)
     local discordId = vx.player.getIdentifier(source, false, "discord")
     return cache[discordId]
+end
+
+function serverCallbackBridge.getDiscordRoles()
+    local roles = vx.waitFor(function()
+        if currentGuild?.roles then
+            return currentGuild?.roles
+        end
+    end, "Failed to get discord roles", 3000)
+
+    for _, role in pairs(roles) do
+        local roleColor = role.color
+        role.hexColor = string.format("#%06X", roleColor)
+    end
+
+    return roles
 end
 
 function serverEventBridge.playerLoaded(source)
@@ -195,6 +231,10 @@ end
 -- Exports --
 -------------
 
+exports("giveRole", function(userId, roleId)
+    giveRole(userId, roleId)
+end)
+
 exports("getMemberByUserId", function(userId)
     return cache[userId]
 end)
@@ -218,4 +258,18 @@ exports("hasRoleId", function(source, roleId)
     end
 
     return false
+end)
+
+exports("getRoleById", function(roleId)
+    if not currentGuild then
+        return nil
+    end
+
+    for _, role in pairs(currentGuild.roles) do
+        if role.id == roleId then
+            return role
+        end
+    end
+
+    return nil
 end)
