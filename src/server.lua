@@ -1,7 +1,3 @@
-vx.print.info({
-    c = "print('test')"
-})
-
 if ServerConfig.token == "none" then
     error(
         "Discord bot token is not set in the server configuration. Please set 'discordToken' convar or update config.server.lua.")
@@ -102,7 +98,7 @@ end
 local function getGuildMember(userId)
     local response = sendRatelimitedRequest(string.format("/members/%s", userId))
     if response.status ~= 200 then
-        return vx.print.error("Failed to fetch Discord member: ", response.error?.message)
+        return vx.print.error("Failed to fetch Discord member:", response.error?.message, " Discord ID:", userId)
     end
 
     return response.body
@@ -118,18 +114,40 @@ local function getGuild()
     return response.body
 end
 
+local function getPlayerDiscordIds(source)
+    local discordIds = {}
+    local identifiers = GetPlayerIdentifiers(source)
+    for _, identifier in pairs(identifiers) do
+        if identifier:sub(1, 8) == "discord:" then
+            table.insert(discordIds, identifier:sub(9))
+        end
+    end
+
+    return discordIds
+end
+
+local function getDiscordIdFromPlayerId(source)
+    local discordIds = getPlayerDiscordIds(source)
+    for _, discordId in pairs(discordIds) do
+        if cache[discordId] then
+            return discordId
+        end
+    end
+
+    return nil
+end
+
 local function loadMember(source)
-    local discordId = vx.player.getIdentifier(source, false, "discord")
-    if not discordId then
-        return vx.print.info(string.format("Player %s does not have a Discord ID", source))
+    local discordIds = getPlayerDiscordIds(source)
+    for _, discordId in pairs(discordIds) do
+        local member = getGuildMember(discordId)
+        if member then
+            cache[discordId] = member
+            return
+        end
     end
 
-    local member = getGuildMember(discordId)
-    if not member then
-        return vx.print.info(("Failed to fetch Discord member for player %s with Discord ID %s"):format(source, discordId))
-    end
-
-    cache[discordId] = member
+    vx.print.warn(("Failed to fetch guild member for player %s"):format(source))
 end
 
 local function giveRole(userId, roleId)
@@ -144,7 +162,9 @@ local function giveRole(userId, roleId)
         }
     })
 
-    vx.print.info(response)
+    if response.errorText or response.status ~= 204 then
+        vx.print.error("Failed to give discord role:", response.errorText, "status:", response.status)
+    end
 end
 
 Citizen.CreateThread(function()
@@ -156,7 +176,7 @@ end)
 ------------------------
 
 function serverCallbackBridge.getCurrentMember(source)
-    local discordId = vx.player.getIdentifier(source, false, "discord")
+    local discordId = getDiscordIdFromPlayerId(source)
     return cache[discordId]
 end
 
@@ -175,13 +195,15 @@ function serverCallbackBridge.getDiscordRoles()
     return roles
 end
 
-function serverEventBridge.playerLoaded(source)
-    loadMember(source)
+function serverEventBridge.playerLoaded(src)
+    loadMember(src)
 end
+
+vx.registerNetEvent("vx_discordapi:reloadMember", loadMember)
 
 vx.registerNetEvent("payerDropped", function()
     local source = source
-    local discordId = vx.player.getIdentifier(source, false, "discord")
+    local discordId = getDiscordIdFromPlayerId(source)
     if not discordId then
         return
     end
@@ -227,6 +249,17 @@ if ServerConfig.refreshCommandEnabled then
     end)
 end
 
+vx.addCommand("vertex-discordapi:dumpSelf", {}, function(source)
+    local discordId = getDiscordIdFromPlayerId(source)
+    local member = cache[discordId]
+
+    vx.print.info(member)
+end)
+
+vx.addCommand("vertex-discordapi:requestQueueCount", {}, function()
+    vx.print.info(#requestQueue)
+end)
+
 -------------
 -- Exports --
 -------------
@@ -240,12 +273,12 @@ exports("getMemberByUserId", function(userId)
 end)
 
 exports("getMemberByPlayerId", function(playerId)
-    local discordId = vx.player.getIdentifier(playerId, false, "discord")
+    local discordId = getDiscordIdFromPlayerId(playerId)
     return cache[discordId]
 end)
 
 exports("hasRoleId", function(source, roleId)
-    local discordId = vx.player.getIdentifier(source, false, "discord")
+    local discordId = getDiscordIdFromPlayerId(source)
     local member = cache[discordId]
     if not member then
         return false
